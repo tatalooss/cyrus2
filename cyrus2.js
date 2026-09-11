@@ -49,7 +49,7 @@ function ipFeedUrl(env) {
 	return (env && env.IP_FEED_URL && env.IP_FEED_URL.trim()) ? env.IP_FEED_URL.trim() : "https://raw.githubusercontent.com/tatalooss/cyrus2/main/ips.txt";
 }
 function isIpv4Line(s) {
-	return /^(\d{1,3})(\.\d{1,3}){3}$/.test(s);
+	return /^(\d{1,3})(\.\d{1,3}){3}$/.test(s) || /^(?=.{1,253}$)([a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,}$/.test(s);
 }
 async function fetchIpFeed(env) {
 	const now = Date.now();
@@ -383,7 +383,7 @@ const Router = {
 				tls: user.tls,
 				port: user.port,
 				ips: user.ips,
-				fingerprint: user.fingerprint || "chrome",
+				fingerprint: user.fingerprint || "unsafe",
 				user_proxy_iata: user.user_proxy_iata,
 				user_socks5: user.user_socks5,
 				user_proxy_ip: user.user_proxy_ip,
@@ -830,7 +830,7 @@ const Router = {
 							}
 						}
 						await env.DB.prepare("UPDATE users SET username = ?, limit_gb = ?, expiry_days = ?, limit_req = ?, ips = ?, tls = ?, port = ?, fingerprint = ?, max_connections = ?, ip_limit = ?, block_porn = ?, block_ads = ?, frag_len = ?, frag_int = ?, user_proxy_iata = ?, user_socks5 = ?, user_proxy_ip = ?, auto_reset_vol_days = ?, auto_reset_req_days = ?, auto_rotate_ip = ?, rotate_time = ?, ip_operator = ?, ip_count = ?, auto_rotate_user_proxy = ?, connection_type = ?, advanced_frag = ?, cipher_suites = ?, tls_mask = ? WHERE username = ?")
-							.bind(new_username || username, limit_gb ? parseFloat(limit_gb) : null, expiry_days ? parseInt(expiry_days) : null, limit_req ? parseInt(limit_req) : null, ips || null, tls, port, fingerprint || "chrome", ip_limit ? parseInt(ip_limit) : null, ip_limit ? parseInt(ip_limit) : null, block_porn ? 1 : 0, block_ads ? 1 : 0, frag_len !== undefined ? frag_len : "200-3000", frag_int !== undefined ? frag_int : "1-2", user_proxy_iata || null, user_socks5 || null, user_proxy_ip || null, auto_reset_vol_days ? parseInt(auto_reset_vol_days) : 0, auto_reset_req_days ? parseInt(auto_reset_req_days) : 0, auto_rotate_ip || 0, rotate_time || 0, ip_operator || "all", ip_count || 100, auto_rotate_user_proxy ? 1 : 0, connection_type && (connection_type.includes("vless") || connection_type.includes("trojan")) ? connection_type : "vl" + "e" + "ss", advanced_frag || null, cipher_suites || null, tls_mask || null, username)
+							.bind(new_username || username, limit_gb ? parseFloat(limit_gb) : null, expiry_days ? parseInt(expiry_days) : null, limit_req ? parseInt(limit_req) : null, ips || null, tls, port, fingerprint || "unsafe", ip_limit ? parseInt(ip_limit) : null, ip_limit ? parseInt(ip_limit) : null, block_porn ? 1 : 0, block_ads ? 1 : 0, frag_len !== undefined ? frag_len : "200-3000", frag_int !== undefined ? frag_int : "1-2", user_proxy_iata || null, user_socks5 || null, user_proxy_ip || null, auto_reset_vol_days ? parseInt(auto_reset_vol_days) : 0, auto_reset_req_days ? parseInt(auto_reset_req_days) : 0, auto_rotate_ip || 0, rotate_time || 0, ip_operator || "all", ip_count || 100, auto_rotate_user_proxy ? 1 : 0, connection_type && (connection_type.includes("vless") || connection_type.includes("trojan")) ? connection_type : "vl" + "e" + "ss", advanced_frag || null, cipher_suites || null, tls_mask || null, username)
 							.run();
 						return new Response(JSON.stringify({ success: true }), { headers: { "Content-Type": "application/json" } });
 					}
@@ -942,7 +942,7 @@ const Router = {
 						const todayUtc = Math.floor(Date.now() / 86400000) * 86400000;
 						const nowTime = Date.now();
 						await env.DB.prepare("INSERT INTO users (username, uuid, limit_gb, expiry_days, limit_req, ips, connection_type, tls, port, fingerprint, max_connections, ip_limit, used_gb, used_req, created_at, is_active, block_porn, block_ads, frag_len, frag_int, user_proxy_iata, user_socks5, user_proxy_ip, auto_reset_vol_days, auto_reset_req_days, last_reset_vol_time, last_reset_req_time, auto_rotate_ip, rotate_time, ip_operator, ip_count, last_rotate_time, auto_rotate_user_proxy, advanced_frag, cipher_suites, tls_mask) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
-							.bind(username, finalUuid, limit_gb ? parseFloat(limit_gb) : null, expiry_days ? parseInt(expiry_days) : null, limit_req ? parseInt(limit_req) : null, ips || null, connection_type && (connection_type.includes("vless") || connection_type.includes("trojan")) ? connection_type : "vl" + "e" + "ss", tls, port, fingerprint || "chrome", ip_limit ? parseInt(ip_limit) : null, ip_limit ? parseInt(ip_limit) : null, finalUsedGb, finalUsedReq, finalCreatedAt, finalIsActive, block_porn ? 1 : 0, block_ads ? 1 : 0, frag_len !== undefined ? frag_len : "200-3000", frag_int !== undefined ? frag_int : "1-2", user_proxy_iata || null, user_socks5 || null, user_proxy_ip || null, auto_reset_vol_days ? parseInt(auto_reset_vol_days) : 0, auto_reset_req_days ? parseInt(auto_reset_req_days) : 0, todayUtc, todayUtc, auto_rotate_ip || 0, rotate_time || 0, ip_operator || "all", ip_count || 100, nowTime, auto_rotate_user_proxy ? 1 : 0, advanced_frag || null, cipher_suites || null, tls_mask || null)
+							.bind(username, finalUuid, limit_gb ? parseFloat(limit_gb) : null, expiry_days ? parseInt(expiry_days) : null, limit_req ? parseInt(limit_req) : null, ips || null, connection_type && (connection_type.includes("vless") || connection_type.includes("trojan")) ? connection_type : "vl" + "e" + "ss", tls, port, fingerprint || "unsafe", ip_limit ? parseInt(ip_limit) : null, ip_limit ? parseInt(ip_limit) : null, finalUsedGb, finalUsedReq, finalCreatedAt, finalIsActive, block_porn ? 1 : 0, block_ads ? 1 : 0, frag_len !== undefined ? frag_len : "200-3000", frag_int !== undefined ? frag_int : "1-2", user_proxy_iata || null, user_socks5 || null, user_proxy_ip || null, auto_reset_vol_days ? parseInt(auto_reset_vol_days) : 0, auto_reset_req_days ? parseInt(auto_reset_req_days) : 0, todayUtc, todayUtc, auto_rotate_ip || 0, rotate_time || 0, ip_operator || "all", ip_count || 100, nowTime, auto_rotate_user_proxy ? 1 : 0, advanced_frag || null, cipher_suites || null, tls_mask || null)
 							.run();
 						return new Response(JSON.stringify({ success: true }), { headers: { "Content-Type": "application/json" } });
 					} catch (err) {
@@ -1085,7 +1085,7 @@ const DbService = {
 		const nowTime = Date.now();
 		try {
 			await db.prepare("INSERT INTO users (username, uuid, limit_gb, expiry_days, limit_req, ips, connection_type, tls, port, fingerprint, max_connections, ip_limit, used_gb, used_req, created_at, is_active, block_porn, block_ads, frag_len, frag_int, user_proxy_iata, user_socks5, user_proxy_ip, auto_reset_vol_days, auto_reset_req_days, last_reset_vol_time, last_reset_req_time, auto_rotate_ip, rotate_time, ip_operator, ip_count, last_rotate_time, auto_rotate_user_proxy) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
-				.bind(username, uuid, null, null, null, ips, "vl" + "e" + "ss", "on", ports, "chrome", null, null, 0, 0, nowIso, 1, 0, 1, "200-3000", "1-2", null, null, null, 0, 0, todayUtc, todayUtc, 0, 0, (env.BOOT_OPERATOR || "all"), 10, nowTime, 0)
+				.bind(username, uuid, null, null, null, ips, "vl" + "e" + "ss", "on", ports, "unsafe", null, null, 0, 0, nowIso, 1, 0, 1, "200-3000", "1-2", null, null, null, 0, 0, todayUtc, todayUtc, 0, 0, (env.BOOT_OPERATOR || "all"), 10, nowTime, 0)
 				.run();
 		} catch (e) {
 			throw new Error("bootstrapDefaults INSERT failed for user '" + username + "': " + (e && e.message ? e.message : String(e)));
@@ -1142,6 +1142,7 @@ function getActiveIpCount(activeIpsJson) {
 }
 let CACHED_CF_LOCATIONS = null;
 let CACHED_CF_LOCATIONS_TIME = 0;
+const DEFAULT_ADVANCED_FRAG = '{"tcp":[{"type":"fragment","settings":{"packets":"tlshello","lengths":["0","104","1"],"delays":["0"],"maxSplit":"0"}},{"type":"fragment","settings":{"packets":"1-1","lengths":["114","1"],"delays":["1"],"maxSplit":"11"}}]}';
 const SubscriptionService = {
 	async generateText(user, host, env) {
 		let ips = [host];
@@ -1161,7 +1162,7 @@ const SubscriptionService = {
 			.split(",")
 			.map((p) => p.trim())
 			.filter((p) => p.length > 0);
-		const fp = user.fingerprint || "chrome";
+		const fp = user.fingerprint || "unsafe";
 		const dynPath = encodeURIComponent("/stream/CYRUS_PANEL/" + (user.uuid ? user.uuid.split("-")[0] : "default"));
 		const links = [];
 		const pingRemark = "یه پینگ کلی بگیر وصل شو به پر سرعت ترین NEW 🎾";
@@ -1222,11 +1223,11 @@ const SubscriptionService = {
 				const isTlsPort = ["443", "2053", "2083", "2087", "2096", "8443"].includes(portStr);
 				const tlsVal = isTlsPort ? "tls" : "none";
 				let userFrag = "";
-				if (user.frag_len && user.frag_int) userFrag += "&fragment=" + user.frag_len + "," + user.frag_int + (isTlsPort ? ",tlshello" : "") + "@CFsazbot";
 				if (user.advanced_frag) userFrag += "&fm=" + encodeURIComponent(user.advanced_frag);
+				else userFrag += "&fm=" + encodeURIComponent(DEFAULT_ADVANCED_FRAG);
 				if (isTlsPort && user.cipher_suites) userFrag += "&cs=" + encodeURIComponent(user.cipher_suites);
 				if (user.tls_mask) userFrag += "&mask=" + encodeURIComponent(user.tls_mask);
-				const tlsParams = isTlsPort ? ("&insecure=0&fp=" + fp + "&allowInsecure=0&sni=" + host) : "";
+				const tlsParams = isTlsPort ? ("&insecure=0&fp=" + fp + "&allowInsecure=0&sni=" + encodeURIComponent(user.tls_mask || host)) : "";
 				const remark = "@CFsazbot  ☘";
 				if (enableVless) {
 					links.push("vl" + "e" + "ss://" + user.uuid + "@" + ip + ":" + portStr + "?path=" + dynPath + "&security=" + tlsVal + "&encryption=none&host=" + host + "&type=ws" + tlsParams + userFrag + "#" + encodeURIComponent(remark));
@@ -3518,10 +3519,11 @@ const HTML_TEMPLATES = {
                                 <label class="block text-[10px] font-bold text-gray-500 dark:text-zinc-400 mb-1.5 uppercase tracking-wider">Fingerprint</label>
                                 <div class="relative">
                                     <select id="fingerprint-select" class="w-full px-2 py-1.5 bg-white dark:bg-amoled-input border border-gray-200 dark:border-amoled-border rounded-md focus:outline-none focus:ring-1 focus:ring-cyrus-primary text-[10px] font-semibold text-gray-700 dark:text-zinc-300 cursor-pointer appearance-none">
+                                        <option value="unsafe" selected>🛡️ Unsafe (پیشنهادی)</option>
                                         <option value="chrome">🌐 Chrome</option>
                                         <option value="firefox">🦊 Firefox</option>
                                         <option value="safari">🧭 Safari</option>
-                                        <option value="ios" selected>📱 iOS (پیشنهادی)</option>
+                                        <option value="ios">📱 iOS</option>
                                         <option value="android">🤖 Android</option>
                                         <option value="edge">🌀 Edge</option>
                                         <option value="360">🔒 360 Browser</option>
