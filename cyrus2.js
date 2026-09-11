@@ -1727,7 +1727,11 @@ async function handlevIees(env, storedData = null, ctx = null, request = null) {
 		const bytes = chunk.byteLength || 0;
 		await addBytes(bytes);
 		if (isDnsQuery) {
-			await forwardvIeesUDP(chunk, serverSock, null, addBytes, targetDns);
+			if (isTrojan) {
+				await forwardTrojanUDP(chunk, serverSock, addBytes, targetDoh);
+			} else {
+				await forwardvIeesUDP(chunk, serverSock, null, addBytes, targetDns);
+			}
 			return;
 		}
 		if (await writeToRemote(chunk)) return;
@@ -1737,22 +1741,33 @@ async function handlevIees(env, storedData = null, ctx = null, request = null) {
 			
 			// Detect Trojan by its fixed header: SHA-224 hex (56 ASCII bytes)
 			// followed by CRLF. A real VLESS header has no CRLF at byte 56/57.
-			let isTrojanCandidate = !isTrojan && chunkBuffer[56] === 0x0d && chunkBuffer[57] === 0x0a;
-			if (isTrojanCandidate) {
+			let isTrojanCandidate = false;
+			if (chunkBuffer.byteLength >= 58 && chunkBuffer[56] === 0x0d && chunkBuffer[57] === 0x0a) {
+				try {
+					const checkHex = new TextDecoder().decode(chunkBuffer.slice(0, 56)).toLowerCase();
+					if (/^[0-9a-f]{56}$/.test(checkHex)) {
+						isTrojanCandidate = true;
+					}
+				} catch (e) {}
+			}
+			if (isTrojanCandidate || isTrojan) {
 				isTrojan = true;
 			}
 			if (isTrojan) {
-				// Trojan header: [SHA224 hex (56)][CRLF(2)][CMD(1)][ATYP(1)][addr][port(2)][CRLF(2)]
+				// Trojan header: [SHA224 hex (56)][CRLF(2)][CMD(1)][ADDR_TYPE(1)][addr][port(2)][CRLF(2)]
+				// NOTE: Trojan ADDR_TYPE differs from VLESS: 1=IPv4, 3=domain, 4=IPv6.
 				if (chunkBuffer.byteLength < 60) return;
 				const tAtyp = chunkBuffer[59];
-				let tNeed = 62;
-				if (tAtyp === 1) tNeed = 68;
-				else if (tAtyp === 2) {
+				if (tAtyp === 1) {
+					if (chunkBuffer.byteLength < 68) return;
+				} else if (tAtyp === 3) {
 					if (chunkBuffer.byteLength < 61) return;
-					tNeed = 61 + chunkBuffer[60] + 4;
-				} else if (tAtyp === 3) tNeed = 80;
-				else return; // invalid
-				if (chunkBuffer.byteLength < tNeed) return;
+					if (chunkBuffer.byteLength < 61 + chunkBuffer[60] + 4) return;
+				} else if (tAtyp === 4) {
+					if (chunkBuffer.byteLength < 80) return;
+				} else {
+					return; // invalid
+				}
 			} else {
 				let optLen = chunkBuffer[17];
 				let requiredLen = 18 + optLen + 4; 
@@ -1904,16 +1919,19 @@ async function handlevIees(env, storedData = null, ctx = null, request = null) {
 				let addr = "";
 				if (addrType === 1) {
 					addr = `${chunkBuffer[offset++]}.${chunkBuffer[offset++]}.${chunkBuffer[offset++]}.${chunkBuffer[offset++]}`;
-				} else if (addrType === 2) {
+				} else if (isTrojan ? addrType === 3 : addrType === 2) {
 					const domainLen = chunkBuffer[offset++];
 					addr = new TextDecoder().decode(chunkBuffer.slice(offset, offset + domainLen));
 					offset += domainLen;
-				} else if (addrType === 3) {
+				} else if (isTrojan ? addrType === 4 : addrType === 3) {
 					const v6 = [];
 					for (let i = 0; i < 8; i++) {
 						v6.push(((chunkBuffer[offset++] << 8) | chunkBuffer[offset++]).toString(16));
 					}
 					addr = v6.join(":");
+				} else {
+					serverSock.close();
+					return;
 				}
 				if (isTrojan) {
 					port = (chunkBuffer[offset++] << 8) | chunkBuffer[offset++];
@@ -1921,7 +1939,7 @@ async function handlevIees(env, storedData = null, ctx = null, request = null) {
 				}
 				const rawData = chunkBuffer.slice(offset);
 				const respHeader = isTrojan ? null : new Uint8Array([chunkBuffer[0], 0]);
-				if ((user.block_ads === 1 || user.block_porn === 1) && addrType === 2 && port !== 53) {
+				if ((user.block_ads === 1 || user.block_porn === 1) && (isTrojan ? addrType === 3 : addrType === 2) && port !== 53) {
 					try {
 						const dnsCheck = await dohQuery(addr, "A", targetDoh);
 						const isBlocked = dnsCheck.some((r) => r.data === "0.0.0.0" || r.data === "::" || r.data === "176.103.130.130");
@@ -1938,7 +1956,11 @@ async function handlevIees(env, storedData = null, ctx = null, request = null) {
 				if (cmd === 2 || (isTrojan && cmd === 3)) {
 					if (port === 53) {
 						isDnsQuery = true;
-						await forwardvIeesUDP(rawData, serverSock, respHeader, addBytes, targetDns);
+						if (isTrojan) {
+							await forwardTrojanUDP(rawData, serverSock, addBytes, targetDoh);
+						} else {
+							await forwardvIeesUDP(rawData, serverSock, respHeader, addBytes, targetDns);
+						}
 					} else {
 						serverSock.close();
 					}
@@ -2659,6 +2681,64 @@ async function connectDirect(targetHost, targetPort, initialData, targetDoh) {
 		}
 		throw new Error(`Connection failed to ${targetHost}:${targetPort}`);
 	}
+}
+async function forwardTrojanUDP(udpChunk, webSocket, onBytes, targetDoh) {
+	try {
+		const data = convertToUint8Array(udpChunk);
+		if (data.byteLength < 7) return;
+		let offset = 0;
+		const addrType = data[offset++];
+		let headerAddrBytes = [];
+		if (addrType === 1) {
+			if (data.byteLength < offset + 4) return;
+			headerAddrBytes = [addrType, data[offset], data[offset + 1], data[offset + 2], data[offset + 3]];
+			offset += 4;
+		} else if (addrType === 3) {
+			if (data.byteLength < offset + 1) return;
+			const domainLen = data[offset++];
+			if (data.byteLength < offset + domainLen) return;
+			headerAddrBytes = [addrType, domainLen, ...data.slice(offset, offset + domainLen)];
+			offset += domainLen;
+		} else if (addrType === 4) {
+			if (data.byteLength < offset + 16) return;
+			headerAddrBytes = [addrType, ...data.slice(offset, offset + 16)];
+			offset += 16;
+		} else {
+			return;
+		}
+		if (data.byteLength < offset + 4) return;
+		const port = (data[offset++] << 8) | data[offset++];
+		const length = (data[offset++] << 8) | data[offset++];
+		offset += 2;
+		if (data.byteLength < offset + length) return;
+		const dnsPayload = data.slice(offset, offset + length);
+		const response = await fetch(targetDoh, {
+			method: 'POST',
+			headers: {
+				'Accept': 'application/dns-message',
+				'Content-Type': 'application/dns-message'
+			},
+			body: dnsPayload
+		});
+		if (!response.ok) return;
+		const rawResponse = new Uint8Array(await response.arrayBuffer());
+		if (typeof onBytes === "function") onBytes(rawResponse.byteLength);
+		if (webSocket.readyState !== WebSocket.OPEN) return;
+		const resLen = rawResponse.byteLength;
+		const udpHeader = new Uint8Array(headerAddrBytes.length + 2 + 2 + 2);
+		let hOff = 0;
+		for (let b of headerAddrBytes) udpHeader[hOff++] = b;
+		udpHeader[hOff++] = (port >> 8) & 0xff;
+		udpHeader[hOff++] = port & 0xff;
+		udpHeader[hOff++] = (resLen >> 8) & 0xff;
+		udpHeader[hOff++] = resLen & 0xff;
+		udpHeader[hOff++] = 0x0D;
+		udpHeader[hOff++] = 0x0A;
+		const merged = new Uint8Array(udpHeader.length + resLen);
+		merged.set(udpHeader, 0);
+		merged.set(rawResponse, udpHeader.length);
+		webSocket.send(merged.buffer);
+	} catch (e) { }
 }
 async function forwardvIeesUDP(udpChunk, webSocket, respHeader, onBytes, dnsServer = "8.8.4.4") {
 	const requestData = convertToUint8Array(udpChunk);
