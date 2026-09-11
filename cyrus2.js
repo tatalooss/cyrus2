@@ -1735,29 +1735,48 @@ async function handlevIees(env, storedData = null, ctx = null, request = null) {
 			chunkBuffer = concatBytes(chunkBuffer, chunk);
 			if (chunkBuffer.byteLength < 24) return;
 			
-			let optLen = chunkBuffer[17];
-			let requiredLen = 18 + optLen + 4; 
-			if (chunkBuffer.byteLength < requiredLen) return;
-			
-			let addrType = chunkBuffer[18 + optLen + 3];
-			if (addrType === 1) {
-				requiredLen += 4;
-			} else if (addrType === 2) {
-				requiredLen += 1;
-				if (chunkBuffer.byteLength < requiredLen) return;
-				requiredLen += chunkBuffer[18 + optLen + 4];
-			} else if (addrType === 3) {
-				requiredLen += 16;
+			// Detect Trojan by its fixed header: SHA-224 hex (56 ASCII bytes)
+			// followed by CRLF. A real VLESS header has no CRLF at byte 56/57.
+			let isTrojanCandidate = !isTrojan && chunkBuffer[56] === 0x0d && chunkBuffer[57] === 0x0a;
+			if (isTrojanCandidate) {
+				isTrojan = true;
 			}
-			
-			if (chunkBuffer.byteLength < requiredLen) return;
+			if (isTrojan) {
+				// Trojan header: [SHA224 hex (56)][CRLF(2)][CMD(1)][ATYP(1)][addr][port(2)][CRLF(2)]
+				if (chunkBuffer.byteLength < 60) return;
+				const tAtyp = chunkBuffer[59];
+				let tNeed = 62;
+				if (tAtyp === 1) tNeed = 68;
+				else if (tAtyp === 2) {
+					if (chunkBuffer.byteLength < 61) return;
+					tNeed = 61 + chunkBuffer[60] + 4;
+				} else if (tAtyp === 3) tNeed = 80;
+				else return; // invalid
+				if (chunkBuffer.byteLength < tNeed) return;
+			} else {
+				let optLen = chunkBuffer[17];
+				let requiredLen = 18 + optLen + 4; 
+				if (chunkBuffer.byteLength < requiredLen) return;
+				
+				let addrType = chunkBuffer[18 + optLen + 3];
+				if (addrType === 1) {
+					requiredLen += 4;
+				} else if (addrType === 2) {
+					requiredLen += 1;
+					if (chunkBuffer.byteLength < requiredLen) return;
+					requiredLen += chunkBuffer[18 + optLen + 4];
+				} else if (addrType === 3) {
+					requiredLen += 16;
+				}
+				
+				if (chunkBuffer.byteLength < requiredLen) return;
+			}
 
 			if (isHeaderParsing) return;
 			isHeaderParsing = true;
-			if (chunkBuffer.byteLength >= 60 && chunkBuffer[56] === 0x0d && chunkBuffer[57] === 0x0a) {
+			if (isTrojan) {
 				const shaHex = new TextDecoder().decode(chunkBuffer.subarray(0, 56)).toLowerCase();
 				reqUUID = await findUUIDFromTrojanHash(env, shaHex);
-				isTrojan = !!reqUUID;
 			} else {
 				reqUUID = extractUUIDFromvIees(chunkBuffer);
 			}
