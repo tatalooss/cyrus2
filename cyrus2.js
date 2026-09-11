@@ -1227,7 +1227,7 @@ const SubscriptionService = {
 				if (isTlsPort && user.cipher_suites) userFrag += "&cs=" + encodeURIComponent(user.cipher_suites);
 				if (user.tls_mask) userFrag += "&mask=" + encodeURIComponent(user.tls_mask);
 				const tlsParams = isTlsPort ? ("&insecure=0&fp=" + fp + "&allowInsecure=0&sni=" + host) : "";
-				const remark = "@CFsazbot  \u2618";
+				const remark = "@CFsazbot  ☘";
 				if (enableVless) {
 					links.push("vl" + "e" + "ss://" + user.uuid + "@" + ip + ":" + portStr + "?path=" + dynPath + "&security=" + tlsVal + "&encryption=none&host=" + host + "&type=ws" + tlsParams + userFrag + "#" + encodeURIComponent(remark));
 				}
