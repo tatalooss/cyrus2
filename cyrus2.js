@@ -48,6 +48,9 @@ const IP_FEED_TTL = 5 * 60 * 1000;
 function ipFeedUrl(env) {
 	return (env && env.IP_FEED_URL && env.IP_FEED_URL.trim()) ? env.IP_FEED_URL.trim() : "https://raw.githubusercontent.com/tatalooss/cyrus2/main/ips.txt";
 }
+function isIpv4Line(s) {
+	return /^(\d{1,3})(\.\d{1,3}){3}$/.test(s);
+}
 async function fetchIpFeed(env) {
 	const now = Date.now();
 	if (IP_FEED_CACHE && now - IP_FEED_CACHE_TS < IP_FEED_TTL) return IP_FEED_CACHE;
@@ -64,7 +67,7 @@ async function fetchIpFeed(env) {
 			const ips = [];
 			lines.forEach((line) => {
 				if (line.includes("#")) opName = line.split("#")[1].trim();
-				else if (!line.startsWith("[source")) ips.push(line);
+				else if (!line.startsWith("[source") && isIpv4Line(line)) ips.push(line);
 			});
 			if (ips.length > 0) parsed[opName] = ips;
 		});
@@ -75,14 +78,8 @@ async function fetchIpFeed(env) {
 		return IP_FEED_CACHE || {};
 	}
 }
-function selectIpsForOperator(cachedIpsData, operator, count) {
-	let availableIps = [];
-	if (operator === "all") {
-		Object.values(cachedIpsData).forEach((ips) => (availableIps = availableIps.concat(ips)));
-	} else {
-		availableIps = cachedIpsData[operator] || [];
-	}
-	availableIps = [...new Set(availableIps)];
+function selectBlockIps(blockIps, count) {
+	let availableIps = [...new Set(blockIps || [])];
 	if (availableIps.length === 0) return [];
 	if (count >= availableIps.length) return availableIps;
 	const shuffled = availableIps.slice();
@@ -91,6 +88,26 @@ function selectIpsForOperator(cachedIpsData, operator, count) {
 		[shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
 	}
 	return shuffled.slice(0, count);
+}
+function selectIpsForOperator(cachedIpsData, operator, count) {
+	if (!operator || operator === "all") {
+		let pool = [];
+		Object.values(cachedIpsData).forEach((ips) => (pool = pool.concat(ips)));
+		return selectBlockIps(pool, count);
+	}
+	if (cachedIpsData[operator]) {
+		return selectBlockIps(cachedIpsData[operator], count);
+	}
+	const opHeaders = Object.keys(cachedIpsData);
+	const matchedHeader = opHeaders.find((h) => h.includes(operator) && !h.includes("دامنه"));
+	if (matchedHeader) {
+		return selectBlockIps(cachedIpsData[matchedHeader], count);
+	}
+	let pool = [];
+	const general = opHeaders.find((h) => h.includes("ایران") && !h.includes("دامنه"));
+	if (general) pool = cachedIpsData[general];
+	else Object.values(cachedIpsData).forEach((ips) => (pool = pool.concat(ips)));
+	return selectBlockIps(pool, count);
 }
 let localLastIpRotateCheck = 0;
 async function checkAutoRotates(env) {
