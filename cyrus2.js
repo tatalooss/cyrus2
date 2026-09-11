@@ -1085,7 +1085,7 @@ const DbService = {
 		const nowTime = Date.now();
 		try {
 			await db.prepare("INSERT INTO users (username, uuid, limit_gb, expiry_days, limit_req, ips, connection_type, tls, port, fingerprint, max_connections, ip_limit, used_gb, used_req, created_at, is_active, block_porn, block_ads, frag_len, frag_int, user_proxy_iata, user_socks5, user_proxy_ip, auto_reset_vol_days, auto_reset_req_days, last_reset_vol_time, last_reset_req_time, auto_rotate_ip, rotate_time, ip_operator, ip_count, last_rotate_time, auto_rotate_user_proxy) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
-				.bind(username, uuid, null, null, null, ips, "vl" + "e" + "ss", "on", ports, "chrome", null, null, 0, 0, nowIso, 1, 0, 1, "200-3000", "1-2", null, null, null, 0, 0, todayUtc, todayUtc, 0, 0, (env.BOOT_OPERATOR || "all"), 37, nowTime, 0)
+				.bind(username, uuid, null, null, null, ips, "vl" + "e" + "ss", "on", ports, "chrome", null, null, 0, 0, nowIso, 1, 0, 1, "200-3000", "1-2", null, null, null, 0, 0, todayUtc, todayUtc, 0, 0, (env.BOOT_OPERATOR || "all"), 10, nowTime, 0)
 				.run();
 		} catch (e) {
 			throw new Error("bootstrapDefaults INSERT failed for user '" + username + "': " + (e && e.message ? e.message : String(e)));
@@ -1147,7 +1147,7 @@ const SubscriptionService = {
 		let ips = [host];
 		if (user.auto_rotate_ip === 1) {
 			const cachedIpsData = await fetchIpFeed(env);
-			const randomIps = selectIpsForOperator(cachedIpsData, user.ip_operator || "all", user.ip_count || 37);
+			const randomIps = selectIpsForOperator(cachedIpsData, user.ip_operator || "all", user.ip_count || 10);
 			if (randomIps.length > 0) ips = randomIps;
 		}
 		if (ips.length === 1 && ips[0] === host && user.ips) {
@@ -1164,31 +1164,8 @@ const SubscriptionService = {
 		const fp = user.fingerprint || "chrome";
 		const dynPath = encodeURIComponent("/stream/CYRUS_PANEL/" + (user.uuid ? user.uuid.split("-")[0] : "default"));
 		const links = [];
-		const wm1 = "⚠️پنل رایگان و غیر قابل فروش⚠️";
-		const wm2 = "🚀@CFsazbot ساخت رایگان🚀";
-		links.push("vl" + "e" + "ss://" + user.uuid + "@0.0.0.0:1?encryption=none&security=none&type=ws&host=" + host + "&path=" + dynPath + "#" + encodeURIComponent(wm1));
-		links.push("vl" + "e" + "ss://" + user.uuid + "@0.0.0.0:1?encryption=none&security=none&type=ws&host=" + host + "&path=" + dynPath + "#" + encodeURIComponent(wm2));
-		let remVol = "Unlimited";
-		if (user.limit_gb) {
-			const liveUsedGb = (user.used_gb || 0) + ((GLOBAL_TRAFFIC_CACHE.get(user.username) || 0) / (1024 * 1024 * 1024));
-			let rem = user.limit_gb - liveUsedGb;
-			remVol = rem > 0 ? rem.toFixed(2) + "GB" : "0GB";
-		}
-		let remTime = "Unlimited";
-		if (user.expiry_days && user.created_at) {
-			const created = new Date(user.created_at);
-			const expiryDate = new Date(created.getTime() + user.expiry_days * 24 * 60 * 60 * 1000);
-			const diffDays = Math.ceil((expiryDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
-			remTime = diffDays > 0 ? diffDays + "Days" : "0Days";
-		}
-		let remReq = "Unlimited";
-		if (user.limit_req) {
-			const liveUsedReq = (user.used_req || 0) + (USER_REQ_CACHE.get(user.username) || 0);
-			let rem = user.limit_req - liveUsedReq;
-			remReq = rem > 0 ? rem.toLocaleString() + "Req" : "0Req";
-		}
-		const infoRemark = "📊 remaining | \u200E" + remVol + " | \u200E" + remTime + " | \u200E" + remReq;
-		links.push("vl" + "e" + "ss://" + user.uuid + "@0.0.0.0:1?encryption=none&security=none&type=ws&host=" + host + "&path=" + dynPath + "#" + encodeURIComponent(infoRemark));
+		const pingRemark = "یه پینگ کلی بگیر وصل شو به پر سرعت ترین NEW 🎾";
+		links.push("vl" + "e" + "ss://" + user.uuid + "@0.0.0.0:1?encryption=none&security=none&type=ws&host=" + host + "&path=" + dynPath + "#" + encodeURIComponent(pingRemark));
 		let countryCode = "";
 		if (user.user_proxy_iata) {
 			try {
@@ -1250,7 +1227,7 @@ const SubscriptionService = {
 				if (isTlsPort && user.cipher_suites) userFrag += "&cs=" + encodeURIComponent(user.cipher_suites);
 				if (user.tls_mask) userFrag += "&mask=" + encodeURIComponent(user.tls_mask);
 				const tlsParams = isTlsPort ? ("&insecure=0&fp=" + fp + "&allowInsecure=0&sni=" + host) : "";
-				const remark = "@CFsazbot | " + flagEmoji + " | " + user.username;
+				const remark = "@CFsazbot  \u2618";
 				if (enableVless) {
 					links.push("vl" + "e" + "ss://" + user.uuid + "@" + ip + ":" + portStr + "?path=" + dynPath + "&security=" + tlsVal + "&encryption=none&host=" + host + "&type=ws" + tlsParams + userFrag + "#" + encodeURIComponent(remark));
 				}
@@ -1282,7 +1259,7 @@ const SubscriptionService = {
 		let ips = [host];
 		if (user.auto_rotate_ip === 1) {
 			const cachedIpsData = await fetchIpFeed(env);
-			const randomIps = selectIpsForOperator(cachedIpsData, user.ip_operator || "all", user.ip_count || 37);
+			const randomIps = selectIpsForOperator(cachedIpsData, user.ip_operator || "all", user.ip_count || 10);
 			if (randomIps.length > 0) ips = randomIps;
 		}
 		if (ips.length === 1 && ips[0] === host && user.ips) {
