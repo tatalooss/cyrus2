@@ -290,7 +290,7 @@ const Router = {
 		return upgradeHeader === "websocket";
 	},
 	isSubscriptionPath(pathname) {
-		return pathname.startsWith("/sub/") || pathname.startsWith("/feed/") || pathname.startsWith("/singbox/");
+		return pathname.startsWith("/sub/") || pathname.startsWith("/subt/") || pathname.startsWith("/feed/") || pathname.startsWith("/singbox/");
 	},
 	async handleWebSocket(request, env, ctx) {
 		try {
@@ -314,8 +314,9 @@ const Router = {
 	},
 	async handleSubscription(url, env) {
 		const isSubPath = url.pathname.startsWith("/sub/");
+		const isSubtPath = url.pathname.startsWith("/subt/");
 		const isSingboxPath = url.pathname.startsWith("/singbox/");
-		const offset = isSingboxPath ? 9 : isSubPath ? 5 : 6;
+		const offset = isSingboxPath ? 9 : isSubtPath ? 6 : isSubPath ? 5 : 6;
 		let subUser = decodeURIComponent(url.pathname.slice(offset));
 		const host = url.hostname;
 		try {
@@ -330,6 +331,9 @@ const Router = {
 			} catch (e) {}
 			if (isSingboxPath) {
 				return await SubscriptionService.generateSingbox(user, host, env);
+			}
+			if (isSubtPath) {
+				return await SubscriptionService.generateText(user, host, env, { mode: "trojan" });
 			}
 			return await SubscriptionService.generateText(user, host, env);
 		} catch (err) {
@@ -1146,7 +1150,8 @@ let CACHED_CF_LOCATIONS = null;
 let CACHED_CF_LOCATIONS_TIME = 0;
 const DEFAULT_ADVANCED_FRAG = '{"tcp":[{"type":"fragment","settings":{"packets":"tlshello","lengths":["0","104","1"],"delays":["0"],"maxSplit":"0"}},{"type":"fragment","settings":{"packets":"1-1","lengths":["114","1"],"delays":["1"],"maxSplit":"11"}}]}';
 const SubscriptionService = {
-	async generateText(user, host, env) {
+	async generateText(user, host, env, opts = {}) {
+		const trojanOnly = opts.mode === "trojan";
 		let ips = [host];
 		if (user.auto_rotate_ip === 1) {
 			const cachedIpsData = await fetchIpFeed(env);
@@ -1168,7 +1173,9 @@ const SubscriptionService = {
 		const dynPath = encodeURIComponent("/stream/CYRUS_PANEL/" + (user.uuid ? user.uuid.split("-")[0] : "default"));
 		const links = [];
 		const pingRemark = "یه پینگ کلی بگیر وصل شو به پر سرعت ترین NEW 🎾";
-		links.push("vl" + "e" + "ss://" + user.uuid + "@0.0.0.0:1?encryption=none&security=none&type=ws&host=" + host + "&path=" + dynPath + "#" + encodeURIComponent(pingRemark));
+		if (!trojanOnly) {
+			links.push("vl" + "e" + "ss://" + user.uuid + "@0.0.0.0:1?encryption=none&security=none&type=ws&host=" + host + "&path=" + dynPath + "#" + encodeURIComponent(pingRemark));
+		}
 		let countryCode = "";
 		if (user.user_proxy_iata) {
 			try {
@@ -1218,8 +1225,9 @@ const SubscriptionService = {
 			} catch (e) {}
 		}
 		const ct = String(user.connection_type || "vl" + "e" + "ss").toLowerCase();
-		const enableVless = ct.includes("vl" + "e" + "ss") || ct === "vl" + "e" + "ss" || !ct.includes("trojan");
-		const enableTrojan = ct.includes("trojan");
+		const enableTrojanRaw = ct.includes("trojan");
+		const enableVless = trojanOnly ? false : (ct.includes("vl" + "e" + "ss") || ct === "vl" + "e" + "ss" || !ct.includes("trojan"));
+		const enableTrojan = enableTrojanRaw;
 		ips.forEach((ip) => {
 			ports.forEach((portStr) => {
 				const isTlsPort = ["443", "2053", "2083", "2087", "2096", "8443"].includes(portStr);
