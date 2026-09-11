@@ -326,6 +326,10 @@ const Router = {
 				console.log(`[handleSubscription] 404: username="${subUser}" found=${!!user} connection_type=${user ? user.connection_type : "N/A"}`);
 				return new Response("Not Found", { status: 404 });
 			}
+			if (isSubPath && !ct.includes("vl" + "e" + "ss")) {
+				console.log(`[handleSubscription] 404 sub (no vless): username="${subUser}" connection_type=${user ? user.connection_type : "N/A"}`);
+				return new Response("Not Found", { status: 404 });
+			}
 			if (isSubtPath && !ct.includes("trojan")) {
 				console.log(`[handleSubscription] 404 subt (no trojan): username="${subUser}" connection_type=${user.connection_type}`);
 				return new Response("Not Found", { status: 404 });
@@ -339,7 +343,7 @@ const Router = {
 			if (isSubtPath) {
 				return await SubscriptionService.generateText(user, host, env, { mode: "trojan" });
 			}
-			return await SubscriptionService.generateText(user, host, env);
+			return await SubscriptionService.generateText(user, host, env, { mode: "vl" + "e" + "ss" });
 		} catch (err) {
 			return new Response("Error building config: " + err.message, { status: 500 });
 		}
@@ -1155,7 +1159,8 @@ let CACHED_CF_LOCATIONS_TIME = 0;
 const DEFAULT_ADVANCED_FRAG = '{"tcp":[{"type":"fragment","settings":{"packets":"tlshello","lengths":["0","104","1"],"delays":["0"],"maxSplit":"0"}},{"type":"fragment","settings":{"packets":"1-1","lengths":["114","1"],"delays":["1"],"maxSplit":"11"}}]}';
 const SubscriptionService = {
 	async generateText(user, host, env, opts = {}) {
-		const trojanOnly = opts.mode === "trojan";
+		const mode = opts.mode || "vl" + "e" + "ss";
+		const trojanOnly = mode === "trojan";
 		let ips = [host];
 		if (user.auto_rotate_ip === 1) {
 			const cachedIpsData = await fetchIpFeed(env);
@@ -1230,8 +1235,9 @@ const SubscriptionService = {
 		}
 		const ct = String(user.connection_type || "vl" + "e" + "ss").toLowerCase();
 		const enableTrojanRaw = ct.includes("trojan");
-		const enableVless = trojanOnly ? false : (ct.includes("vl" + "e" + "ss") || ct === "vl" + "e" + "ss" || !ct.includes("trojan"));
-		const enableTrojan = enableTrojanRaw;
+		const enableVlessRaw = ct.includes("vl" + "e" + "ss") || ct === "vl" + "e" + "ss" || !ct.includes("trojan");
+		const enableVless = trojanOnly ? false : enableVlessRaw;
+		const enableTrojan = mode === "trojan" ? enableTrojanRaw : mode === "vl" + "e" + "ss" ? false : enableTrojanRaw;
 		ips.forEach((ip) => {
 			ports.forEach((portStr) => {
 				const isTlsPort = ["443", "2053", "2083", "2087", "2096", "8443"].includes(portStr);
