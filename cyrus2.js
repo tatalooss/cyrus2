@@ -326,6 +326,10 @@ const Router = {
 				console.log(`[handleSubscription] 404: username="${subUser}" found=${!!user} connection_type=${user ? user.connection_type : "N/A"}`);
 				return new Response("Not Found", { status: 404 });
 			}
+			if (isSubtPath && !ct.includes("trojan")) {
+				console.log(`[handleSubscription] 404 subt (no trojan): username="${subUser}" connection_type=${user.connection_type}`);
+				return new Response("Not Found", { status: 404 });
+			}
 			try {
 				await env.DB.prepare("UPDATE users SET used_req = used_req + 1 WHERE username = ?").bind(user.username).run();
 			} catch (e) {}
