@@ -1083,9 +1083,11 @@ const DbService = {
 		const nowIso = new Date().toISOString();
 		const todayUtc = Math.floor(Date.now() / 86400000) * 86400000;
 		const nowTime = Date.now();
+		const bootCt = String(env.BOOT_CONNECTION_TYPE || "vl" + "e" + "ss").toLowerCase();
+		const bootCtValid = bootCt.includes("vl" + "e" + "ss") || bootCt.includes("trojan") ? bootCt : "vl" + "e" + "ss";
 		try {
 			await db.prepare("INSERT INTO users (username, uuid, limit_gb, expiry_days, limit_req, ips, connection_type, tls, port, fingerprint, max_connections, ip_limit, used_gb, used_req, created_at, is_active, block_porn, block_ads, frag_len, frag_int, user_proxy_iata, user_socks5, user_proxy_ip, auto_reset_vol_days, auto_reset_req_days, last_reset_vol_time, last_reset_req_time, auto_rotate_ip, rotate_time, ip_operator, ip_count, last_rotate_time, auto_rotate_user_proxy) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
-				.bind(username, uuid, null, null, null, ips, "vl" + "e" + "ss", "on", ports, "unsafe", null, null, 0, 0, nowIso, 1, 0, 1, "200-3000", "1-2", null, null, null, 0, 0, todayUtc, todayUtc, 0, 0, (env.BOOT_OPERATOR || "all"), 10, nowTime, 0)
+				.bind(username, uuid, null, null, null, ips, bootCtValid, "on", ports, "unsafe", null, null, 0, 0, nowIso, 1, 0, 1, "200-3000", "1-2", null, null, null, 0, 0, todayUtc, todayUtc, 0, 0, (env.BOOT_OPERATOR || "all"), 10, nowTime, 0)
 				.run();
 		} catch (e) {
 			throw new Error("bootstrapDefaults INSERT failed for user '" + username + "': " + (e && e.message ? e.message : String(e)));
